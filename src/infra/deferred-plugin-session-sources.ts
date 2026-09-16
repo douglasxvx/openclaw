@@ -66,6 +66,23 @@ const receiptSchema = z.object({
 });
 export type DeferredPluginSessionImport = z.infer<typeof receiptSchema>;
 
+/** Receipt verification and retained counting share one synchronous phase; publication revalidates. */
+export function prepareSessionSourceVerification(params: SessionImportSource) {
+  const verification: SessionSourceVerification = new Map();
+  return {
+    cfg: params.cfg,
+    target: params.target,
+    resolvedTarget: {
+      agentId: params.target.agentId,
+      storePath: params.target.storePath,
+      sqlitePath: params.sqlitePath,
+    },
+    sqlitePath: params.sqlitePath,
+    env: params.env,
+    verification,
+  };
+}
+
 export function deferredPluginSessionStoreIds(params: {
   target: { agentId: string; storePath: string };
   pending: readonly DeferredPluginMigration[];

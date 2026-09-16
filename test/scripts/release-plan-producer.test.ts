@@ -1827,6 +1827,12 @@ mutateModule.syncBuiltinESMExports();
     );
     expect(npmPackages).toHaveLength(95);
     expect(clawHubPackages).toHaveLength(91);
+    for (const name of ["@openclaw/logbook", "@openclaw/memory-wiki", "@openclaw/onepassword"]) {
+      expect(
+        plan.inventory.packages.some((entry) => entry.name === name),
+        name,
+      ).toBe(false);
+    }
     const coreNpmPackages = new Set([
       "@openclaw/ai",
       "@openclaw/gateway-client",

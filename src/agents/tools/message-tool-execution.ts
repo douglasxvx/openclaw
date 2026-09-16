@@ -316,6 +316,8 @@ export function createMessageTool(options?: MessageToolOptions): AnyAgentTool {
         scheduledRead,
         scheduledWrite,
         assertDashboardReadCurrent,
+        hasChannelTurnContext,
+        gatewayTurnCapability,
       } = turnAuthority.beginInvocation(action);
       const messageActionAuthorization: MessageActionAuthorization = trustedTurnContext ?? {};
       const requestedAccountId = readToolStringParam(params, "accountId");
@@ -401,6 +403,7 @@ export function createMessageTool(options?: MessageToolOptions): AnyAgentTool {
       const gateway = createMessageToolGateway(params, options, signal, {
         resolveConfig: () => cfg,
         preserveWriteOutcome: Boolean(scheduledWrite),
+        turnCapability: gatewayTurnCapability,
       });
       decisions.runBoundary(() =>
         validateExplicitMessageAccountSelection({
@@ -461,10 +464,7 @@ export function createMessageTool(options?: MessageToolOptions): AnyAgentTool {
             : [scope.channel],
           trustedCurrentChannel: trustedTurnContext?.toolContext?.currentChannelProvider,
           trustedRequesterAccountId: trustedTurnContext?.requesterAccountId,
-          // Scheduled grants have no inbound conversation. Dispatch validates
-          // their recorded creator scope against the resolved provider/account.
-          hasTrustedTurnContext:
-            trustedTurnContext !== undefined && messageActionAuthorization.scheduled === undefined,
+          hasTrustedTurnContext: hasChannelTurnContext,
         }),
       );
       if (explicitAccountId) {

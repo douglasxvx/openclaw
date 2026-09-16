@@ -36,20 +36,22 @@ export function createMessageToolGateway(
   invocation?: {
     resolveConfig: () => OpenClawConfig;
     preserveWriteOutcome: boolean;
+    turnCapability: string | undefined;
   },
 ): MessageActionGateway | undefined {
   const gatewayOpts = readGatewayCallOptions(params);
+  // Read-only dashboard authority must not change native write context or retry ownership.
+  const turnCapability = invocation
+    ? invocation.turnCapability
+    : options?.messageActionTurnCapability;
   if (options?.conversationReadOrigin === "direct-operator") {
     return undefined;
   }
   const boundRequest = shouldUseInProcessGatewayTool(gatewayOpts)
-    ? withMessageActionInvocationConfig(
-        options?.messageActionTurnCapability,
-        invocation?.resolveConfig,
-        () =>
-          bindAgentToolGatewayRequest({
-            revalidateOnCompletion: !invocation?.preserveWriteOutcome,
-          }),
+    ? withMessageActionInvocationConfig(turnCapability, invocation?.resolveConfig, () =>
+        bindAgentToolGatewayRequest({
+          revalidateOnCompletion: !invocation?.preserveWriteOutcome,
+        }),
       )
     : undefined;
   const { target, ...connection } = resolveGatewayOptions(gatewayOpts);
@@ -60,7 +62,7 @@ export function createMessageToolGateway(
   const identityParams = {
     opts: gatewayOpts,
     target: boundRequest ? ("local" as const) : target,
-    turnCapability: options?.messageActionTurnCapability,
+    turnCapability,
     turnCapabilitySessionKey: options?.agentSessionKey,
     runId: options?.runId,
     sessionId: options?.sessionId,

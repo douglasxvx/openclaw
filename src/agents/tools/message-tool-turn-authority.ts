@@ -41,6 +41,8 @@ export function createMessageToolTurnAuthority(params: {
     },
     beginInvocation: (action: string) => {
       const authorization = resolve();
+      const isRead = isFencedProviderReadAction(action);
+      const dashboardRead = authorization?.assertDashboardReadCurrent;
       const admitScheduled = authorization?.scheduled && params.admitScheduledInvocation;
       if (authorization?.scheduled && !admitScheduled) {
         throw new Error("Scheduled message invocation requires current tool policy admission.");
@@ -48,13 +50,13 @@ export function createMessageToolTurnAuthority(params: {
       return {
         authorization,
         config: admitScheduled ? admitScheduled() : params.getConfig(),
-        scheduledRead: isFencedProviderReadAction(action) ? authorization?.scheduled : undefined,
+        hasChannelTurnContext: Boolean(authorization && !authorization.scheduled && !dashboardRead),
+        gatewayTurnCapability: dashboardRead && !isRead ? undefined : token,
+        scheduledRead: isRead ? authorization?.scheduled : undefined,
         scheduledWrite: isScheduledMessageWriteAction(action)
           ? authorization?.scheduled
           : undefined,
-        assertDashboardReadCurrent: isFencedProviderReadAction(action)
-          ? authorization?.assertDashboardReadCurrent
-          : undefined,
+        assertDashboardReadCurrent: isRead ? dashboardRead : undefined,
       };
     },
     scheduledAccountScope:

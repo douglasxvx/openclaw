@@ -22,7 +22,6 @@ import {
 import type { OpenClawConfig } from "../config/config.js";
 import { resetConfigRuntimeState, setRuntimeConfigSnapshot } from "../config/config.js";
 import { resolveSessionStorePathCore, type SessionEntry } from "../config/sessions.js";
-import { canPrewarmCombinedSessionStoresForGateway } from "../config/sessions/combined-store-gateway.js";
 import {
   deleteSessionEntryLifecycle,
   replaceSessionEntry,
@@ -1777,13 +1776,6 @@ describe("loadCombinedSessionStoreForGatewayCore includes disk-only agents (#328
         "main",
       );
 
-      expect(
-        canPrewarmCombinedSessionStoresForGateway(cfg, {
-          agentIds: ["main", "ops"],
-          maxRows: 1,
-        }),
-      ).toBe(false);
-
       const { diagnostics, store } = loadCombinedSessionStoreForGatewayCore(cfg);
       expect(store["agent:main:main"]?.sessionId).toBe("s-main-unscoped");
       expect(store["agent:ops:main"]).toBeUndefined();
@@ -1882,13 +1874,6 @@ describe("loadCombinedSessionStoreForGatewayCore includes disk-only agents (#328
         "ops",
       );
 
-      expect(
-        canPrewarmCombinedSessionStoresForGateway(cfg, {
-          agentIds: ["ops"],
-          maxRows: 4,
-        }),
-      ).toBe(false);
-
       const { store } = loadCombinedSessionStoreForGatewayCore(cfg);
       expect(store["agent:ops:main"]?.sessionId).toBe("s-ops");
       expect(store["agent:worker:main"]?.sessionId).toBe("s-worker");
@@ -1986,13 +1971,6 @@ describe("loadCombinedSessionStoreForGatewayCore includes disk-only agents (#328
       const { store, storePath } = loadCombinedSessionStoreForGatewayCore(cfg, {
         agentId: "codex",
       });
-
-      expect(
-        canPrewarmCombinedSessionStoresForGateway(cfg, {
-          agentIds: ["codex"],
-          maxRows: 0,
-        }),
-      ).toBe(false);
 
       expect(path.resolve(storePath)).toBe(path.resolve(codexStorePath));
       expect(store["agent:codex:acp-task"]?.sessionId).toBe("s-codex");

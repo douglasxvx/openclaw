@@ -209,7 +209,7 @@ export function createSessionListSearchMatcher(params: {
     const selected = resolveSessionSelectedModelRef({
       cfg,
       sessionKey: storeKey,
-      source: target.modelSource,
+      source: target,
       agentId,
       rowContext: context(),
       allowPluginNormalization: false,

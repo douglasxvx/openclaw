@@ -42,7 +42,8 @@ export function sessionStoreTargetsFixture(params: {
         {
           agentId,
           storeTarget: { agentId, storePath: params.storePath },
-          modelSource: { entry, loadSessionEntry },
+          entry,
+          loadSessionEntry,
         },
       ] as const;
     }),

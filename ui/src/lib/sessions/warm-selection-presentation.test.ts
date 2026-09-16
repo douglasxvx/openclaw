@@ -1,10 +1,13 @@
 // @vitest-environment node
+import { createRequireRecord } from "openclaw/plugin-sdk/test-fixtures";
 import { expect, it, vi } from "vitest";
 import { createDeferred } from "../../../../test/helpers/promise.js";
 import type { SessionsListResult } from "../../api/types.ts";
 import { createTestGatewayClient } from "../../test-helpers/gateway-client.ts";
 import { createSessionCapability } from "./index.ts";
 import { createGatewayHarness, sessionsResult } from "./session-capability.test-support.ts";
+
+const requireRecord = createRequireRecord("object", "expected-label");
 
 // Hold the returning agent's RPC so assertions cannot pass through network revalidation.
 function createWarmSelectionHarness(holdObserver = false) {
@@ -27,17 +30,21 @@ function createWarmSelectionHarness(holdObserver = false) {
       ],
       1,
     );
-  const request = vi.fn(async (method: string, params?: Record<string, unknown>) => {
+  const request = vi.fn(async (method: string, params?: unknown) => {
     if (method === "sessions.subscribe") {
       return holdObserver ? observer.promise : { subscribed: true };
     }
     if (method === "sessions.delete") {
       return { deleted: true };
     }
-    if (method !== "sessions.list" || typeof params?.agentId !== "string") {
+    if (method !== "sessions.list") {
       throw new Error(`Unexpected request: ${method}`);
     }
-    return holdMain && params.agentId === "main" ? pending.promise : result(params.agentId);
+    const agentId = requireRecord(params, "sessions.list params").agentId;
+    if (typeof agentId !== "string") {
+      throw new Error("Session query has no agent owner");
+    }
+    return holdMain && agentId === "main" ? pending.promise : result(agentId);
   });
   const client = createTestGatewayClient(request);
   const harness = createGatewayHarness(client);
@@ -151,7 +158,9 @@ it.each([
       await vi.advanceTimersByTimeAsync(0);
       expect(
         h.request.mock.calls.filter(
-          ([method, params]) => method === "sessions.list" && params?.agentId === "main",
+          ([method, params]) =>
+            method === "sessions.list" &&
+            requireRecord(params, "sessions.list params").agentId === "main",
         ),
       ).toHaveLength(retirement === "local-delete" ? 3 : 2);
       expect(h.sessions.state.agentId).not.toBe("main");

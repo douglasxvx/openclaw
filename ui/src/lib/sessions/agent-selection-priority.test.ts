@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { createRequireRecord } from "openclaw/plugin-sdk/test-fixtures";
 import { expect, it, vi } from "vitest";
 import { createDeferred } from "../../../../test/helpers/promise.js";
 import type { SessionsListResult } from "../../api/types.ts";
@@ -7,6 +8,8 @@ import { createConnectionBootstrapCoordinator } from "../../app/connection-boots
 import { createTestGatewayClient } from "../../test-helpers/gateway-client.ts";
 import { createSessionCapability } from "./index.ts";
 import { createGatewayHarness, sessionsResult } from "./session-capability.test-support.ts";
+
+const requireRecord = createRequireRecord("object", "expected-label");
 
 it.each([false, true])(
   "dispatches deliberate selection before transcript readiness (obsolete list pending: %s)",
@@ -20,10 +23,13 @@ it.each([false, true])(
       if (method === "sessions.subscribe") {
         return { subscribed: true };
       }
-      if (method !== "sessions.list" || typeof params?.agentId !== "string") {
+      if (method !== "sessions.list") {
         throw new Error(`Unexpected request: ${method}`);
       }
-      const agentId = params.agentId;
+      const agentId = requireRecord(params, "sessions.list params").agentId;
+      if (typeof agentId !== "string") {
+        throw new Error("Session query has no agent owner");
+      }
       reads.push(agentId);
       return agentId === "writer" && obsoletePending ? pendingWriter.promise : result(agentId);
     });
@@ -53,6 +59,11 @@ it.each([false, true])(
       await vi.advanceTimersByTimeAsync(0);
       // Automatic connection hydration retains the selected-history priority.
       expect(reads).toEqual([]);
+      // Initial route binding changes agent ownership but keeps automatic lists queued.
+      selection.set("writer", { background: true });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(reads).toEqual([]);
+      selection.set("main", { background: true });
       coordinator.setForegroundPane({}, { sessionKey: "agent:main:main", client, ready: true });
       await vi.advanceTimersByTimeAsync(0);
       expect(reads).toEqual(["main"]);

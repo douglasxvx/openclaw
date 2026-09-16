@@ -27,7 +27,7 @@ vi.mock("./official-external-plugin-catalog.js", async (importOriginal) => {
 });
 
 const { clearManagedPluginCatalogCache } = await import("./management-catalog.js");
-const { listManagedPlugins, resolveManagedPluginIconSource } =
+const { listManagedPlugins, resolveManagedPluginIconSources } =
   await import("./management-service.js");
 
 function metadataSnapshot(params: {
@@ -247,7 +247,7 @@ describe("plugin management Featured authority", () => {
     mocks.metadata.mockReturnValue(emptyMetadataSnapshot());
 
     const catalog = await listManagedPlugins({ config: {}, env: {}, officialCatalog });
-    const resolved = await resolveManagedPluginIconSource({
+    const resolved = await resolveManagedPluginIconSources({
       config: {},
       env: {},
       pluginId: "@expediagroup/expedia-openclaw",
@@ -261,7 +261,7 @@ describe("plugin management Featured authority", () => {
       order: 10,
     });
     expect(catalog.plugins[0]).not.toHaveProperty("hasIcon");
-    expect(resolved).toBeUndefined();
+    expect(resolved).toEqual([]);
   });
 
   beforeEach(() => {
@@ -527,7 +527,7 @@ describe("plugin management Featured authority", () => {
     );
 
     const catalog = await listManagedPlugins({ config: {}, env: {} });
-    const resolvedIcon = await resolveManagedPluginIconSource({
+    const resolvedIcon = await resolveManagedPluginIconSources({
       config: {},
       env: {},
       pluginId: "firecrawl",
@@ -544,8 +544,10 @@ describe("plugin management Featured authority", () => {
         order: 10,
       }),
     ]);
-    expect(catalog.plugins[0]).not.toHaveProperty("hasIcon");
-    expect(resolvedIcon).toBeUndefined();
+    expect(catalog.plugins[0]?.hasIcon).toBe(true);
+    expect(resolvedIcon).toEqual([
+      { kind: "clawhub", baseUrl: "https://clawhub.ai", packageName: "@openclaw/firecrawl-plugin" },
+    ]);
   });
 
   it("keeps local curation for an unproven global package identity", async () => {
@@ -591,7 +593,7 @@ describe("plugin management Featured authority", () => {
     );
 
     const catalog = await listManagedPlugins({ config: {}, env: {} });
-    const resolvedIcon = await resolveManagedPluginIconSource({
+    const resolvedIcon = await resolveManagedPluginIconSources({
       config: {},
       env: {},
       pluginId: "workboard",
@@ -606,7 +608,7 @@ describe("plugin management Featured authority", () => {
         order: 10,
       }),
     ]);
-    expect(resolvedIcon).toBeUndefined();
+    expect(resolvedIcon).toEqual([]);
   });
 
   it("does not identify a package-less global plugin by hosted runtime id alone", async () => {
@@ -830,7 +832,7 @@ describe("plugin management Featured authority", () => {
       mocks.officialCatalog.mockResolvedValue(hostedCatalog(entries));
 
       const catalog = await listManagedPlugins({ config: {}, env: {} });
-      const icon = await resolveManagedPluginIconSource({
+      const icon = await resolveManagedPluginIconSources({
         config: {},
         env: {},
         pluginId: "installed",
@@ -854,8 +856,10 @@ describe("plugin management Featured authority", () => {
           featured: curated,
         }),
       ]);
-      expect(catalog.plugins.find((entry) => entry.id === "installed")?.hasIcon).toBeUndefined();
-      expect(icon).toBeUndefined();
+      expect(catalog.plugins.find((entry) => entry.id === "installed")?.hasIcon).toBe(true);
+      expect(icon).toEqual([
+        { kind: "clawhub", baseUrl: "https://clawhub.ai", packageName: "@acme/shared" },
+      ]);
     },
   );
 
@@ -921,7 +925,7 @@ describe("plugin management Featured authority", () => {
       ],
     };
     const catalog = await listManagedPlugins({ config: {}, env: {}, officialCatalog });
-    const icon = await resolveManagedPluginIconSource({
+    const icon = await resolveManagedPluginIconSources({
       config: {},
       env: {},
       pluginId: "ALIAS",
@@ -929,9 +933,11 @@ describe("plugin management Featured authority", () => {
 
     expect(catalog.plugins).toHaveLength(2);
     for (const plugin of catalog.plugins) {
-      expect(plugin.hasIcon).toBeUndefined();
+      expect(plugin.hasIcon).toBe(true);
     }
-    expect(icon).toBeUndefined();
+    expect(icon).toEqual([
+      { kind: "clawhub", baseUrl: "https://clawhub.ai", packageName: "@acme/first" },
+    ]);
   });
 
   it.each([undefined, "https://cdn.example.test/first.png"])(
@@ -946,14 +952,14 @@ describe("plugin management Featured authority", () => {
       };
 
       const catalog = await listManagedPlugins({ config: {}, env: {}, officialCatalog });
-      const icon = await resolveManagedPluginIconSource({
+      const icon = await resolveManagedPluginIconSources({
         config: {},
         env: {},
         pluginId: "duplicate",
       });
 
       expect(catalog.plugins.map((plugin) => plugin.hasIcon)).toEqual([undefined, undefined]);
-      expect(icon).toBeUndefined();
+      expect(icon).toEqual([]);
     },
   );
 

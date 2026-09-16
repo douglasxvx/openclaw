@@ -9,10 +9,6 @@ import type { InboundEventKind } from "../../channels/inbound-event/kind.js";
 import type { ConversationReadInvocationOrigin } from "../../channels/plugins/conversation-read-origin.js";
 import { getChannelPlugin } from "../../channels/plugins/index.js";
 import type { PreparedMessageToolCatalog } from "../../channels/plugins/message-action-discovery.js";
-import {
-  isFencedProviderReadAction,
-  isScheduledMessageWriteAction,
-} from "../../channels/plugins/message-action-dispatch.js";
 import type { ChannelMessageActionName } from "../../channels/plugins/types.public.js";
 import { resolveCommandSecretRefsViaGateway } from "../../cli/command-secret-gateway.js";
 import { getScopedChannelsCommandSecretTargets } from "../../cli/command-secret-targets.js";
@@ -314,8 +310,13 @@ export function createMessageTool(options?: MessageToolOptions): AnyAgentTool {
       const action = readToolStringParam(params, "action", {
         required: true,
       }) as ChannelMessageActionName;
-      const { authorization: trustedTurnContext, config: rawConfig } =
-        turnAuthority.beginInvocation();
+      const {
+        authorization: trustedTurnContext,
+        config: rawConfig,
+        scheduledRead,
+        scheduledWrite,
+        assertDashboardReadCurrent,
+      } = turnAuthority.beginInvocation(action);
       const messageActionAuthorization: MessageActionAuthorization = trustedTurnContext ?? {};
       const requestedAccountId = readToolStringParam(params, "accountId");
       const effectiveCurrentChannel = resolveEffectiveCurrentChannelContext(options, {
@@ -335,12 +336,6 @@ export function createMessageTool(options?: MessageToolOptions): AnyAgentTool {
           ? decisions.executionIdentityToken
           : undefined;
       const deliveryRunId = options?.runId ?? executionIdentityToken?.runId;
-      const scheduledRead = isFencedProviderReadAction(action)
-        ? messageActionAuthorization.scheduled
-        : undefined;
-      const scheduledWrite = isScheduledMessageWriteAction(action)
-        ? messageActionAuthorization.scheduled
-        : undefined;
       const scheduledReadAccountId =
         scheduledRead?.policy.mode === "account" ? scheduledRead.policy.ownerAccountId : undefined;
       if (normalizeOptionalString(options?.messageActionTurnCapability) && !trustedTurnContext) {
@@ -351,6 +346,7 @@ export function createMessageTool(options?: MessageToolOptions): AnyAgentTool {
         assertCaller();
         turnAuthority.assertCurrent();
         scheduledRead?.assertCurrent();
+        assertDashboardReadCurrent?.();
         scheduledWrite?.assertCurrent();
       };
       assertActionCurrent();
@@ -598,7 +594,9 @@ export function createMessageTool(options?: MessageToolOptions): AnyAgentTool {
         sourceReplySinkDeliveryMode === "message_tool_only" &&
         normalizeOptionalString(trustedTurnContext?.toolContext?.currentSourceTurnId) !== undefined;
       return await withChannelReadAuthority(
-        action === "download-file" || scheduledRead ? assertActionCurrent : undefined,
+        action === "download-file" || scheduledRead || assertDashboardReadCurrent
+          ? assertActionCurrent
+          : undefined,
         async () => {
           let result: MessageActionResult;
           try {

@@ -24,7 +24,7 @@ import {
 import { createAgentRuntimeAuthorityGuard } from "./agent-runtime-authority.js";
 import type { GatewayRequestHandlers } from "./types.js";
 
-/** Retain the live caller and scheduled source through this action's requests. */
+/** Retain the live caller and admitted source through this action's requests. */
 export function createMessageActionRuntimeAuthority(
   params: Pick<
     Parameters<GatewayRequestHandlers["message.action"]>[0],
@@ -37,15 +37,20 @@ export function createMessageActionRuntimeAuthority(
   const assertScheduledReadCurrent = isFencedProviderReadAction(params.request.action)
     ? params.authorization?.scheduled?.assertCurrent
     : undefined;
+  const assertReadCurrent =
+    assertScheduledReadCurrent ??
+    (isFencedProviderReadAction(params.request.action)
+      ? params.authorization?.assertDashboardReadCurrent
+      : undefined);
   const assertScheduledWriteCurrent = isScheduledMessageWriteAction(params.request.action)
     ? params.authorization?.scheduled?.assertCurrent
     : undefined;
-  const assertScheduledActionCurrent = assertScheduledReadCurrent ?? assertScheduledWriteCurrent;
+  const assertActionCurrent = assertReadCurrent ?? assertScheduledWriteCurrent;
   const scheduledPolicy = assertScheduledReadCurrent
     ? params.authorization?.scheduled?.policy
     : undefined;
   return {
-    assertScheduledReadCurrent,
+    assertReadCurrent,
     assertScheduledWriteCurrent,
     routeAccountId:
       normalizeOptionalString(params.request.accountId) ??
@@ -55,10 +60,10 @@ export function createMessageActionRuntimeAuthority(
       params.client,
       params.context,
       params.respond,
-      assertScheduledActionCurrent
+      assertActionCurrent
         ? () => {
             params.sessionMutationCommitGuard?.();
-            assertScheduledActionCurrent();
+            assertActionCurrent();
           }
         : params.sessionMutationCommitGuard,
     ),
